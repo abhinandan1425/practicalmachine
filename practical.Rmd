@@ -1,0 +1,122 @@
+title: "Practical Machine Project"
+author: "abhinandan Jain"
+date: "23/10/2020"
+output: html_document
+
+## Data description
+
+- Class A : Exactly same 
+- Class B : Throwing elbows to the front 
+- Class C : Lifting dumbbell only halfway
+- Class D : Lowering dumbbell only halfway
+- Class E : Throwing hips to the front 
+
+
+## configuration
+
+```{r configuration, echo=TRUE, results='hide'}
+#Data variables
+training.file   <- './data/pml-training.csv'
+test.cases.file <- './data/pml-testing.csv'
+training.url    <- 'http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv'
+test.cases.url  <- 'http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv'
+#Directories
+if (!file.exists("data")){
+  dir.create("data")
+}
+if (!file.exists("data/submission")){
+  dir.create("data/submission")
+}
+#R-Packages
+IscaretInstalled <- require("caret")
+if(!IscaretInstalled){
+    install.packages("caret")
+    library("caret")
+    }
+IsrandomForestInstalled <- require("randomForest")
+if(!IsrandomForestInstalled){
+    install.packages("randomForest")
+    library("randomForest")
+    }
+IsRpartInstalled <- require("rpart")
+if(!IsRpartInstalled){
+    install.packages("rpart")
+    library("rpart")
+    }
+IsRpartPlotInstalled <- require("rpart.plot")
+if(!IsRpartPlotInstalled){
+    install.packages("rpart.plot")
+    library("rpart.plot")
+    }
+# Set seed for reproducability
+set.seed(9999)
+```
+
+## Data processing
+
+```{r dataprocessing, echo=TRUE, results='hide'}
+# Download data
+download.file(training.url, training.file)
+download.file(test.cases.url,test.cases.file )
+# Clean data
+training   <-read.csv(training.file, na.strings=c("NA","#DIV/0!", ""))
+testing <-read.csv(test.cases.file , na.strings=c("NA", "#DIV/0!", ""))
+training<-training[,colSums(is.na(training)) == 0]
+testing <-testing[,colSums(is.na(testing)) == 0]
+# Subset data
+training   <-training[,-c(1:7)]
+testing <-testing[,-c(1:7)]
+```
+
+## Cross-validation
+
+```{r datasplitting, echo=TRUE, results='hide'}
+subSamples <- createDataPartition(y=training$classe, p=0.75, list=FALSE)
+subTraining <- training[subSamples, ] 
+subTesting <- training[-subSamples, ]
+```
+```{r exploranalysis, echo=TRUE}
+plot(subTraining$classe, col="orange", main="Levels of the variable classe", xlab="classe levels", ylab="Frequency")
+```
+
+we can say that the Level A is the most frequent 'class' & the level D is the least frequent one.
+
+## Prediction models
+Here I am going to apply a decision tree & random forest.
+
+### Decision tree
+Following R code is being used to draw the decision tree.
+```{r decisiontree, echo=TRUE}
+# Fit model
+modFitDT <- rpart(classe ~ ., data=subTraining, method="class")
+# Perform prediction
+predictDT <- predict(modFitDT, subTesting, type = "class")
+# Plot result
+rpart.plot(modFitDT, main="Classification Tree", extra=102, under=TRUE, faclen=0)
+```
+
+The confusion matrix below shows all the errors that comes from the prediction algorithm.
+
+```{r decisiontreecm, echo=TRUE}
+confusionMatrix(predictDT, subTesting$classe)
+```
+
+### Random forest
+Following R code is used to predict using the random forest.
+```{r randomforest, echo=TRUE}
+# Fit model
+modFitRF <- randomForest(classe ~ ., data=subTraining, method="class")
+# Perform prediction
+predictRF <- predict(modFitRF, subTesting, type = "class")
+```
+
+The confusion matrix below shows all the errors that comes from the prediction algorithm.
+
+```{r randomforestcm, echo=TRUE}
+confusionMatrix(predictRF, subTesting$classe)
+```
+
+### Expected error
+We came to know that the expected error is estimated at 0.005, or 0.5%. The expected out-of-sample error is calculated as 1 - accuracy for predictions made against the cross-validation set.
+Our Test data set has 20 cases. So, with an accuracy of 99.5% on our cross-validation data, we can expect that only a very few, or none, of the test samples will be missclassified.
+
